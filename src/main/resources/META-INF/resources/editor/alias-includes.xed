@@ -25,5 +25,13 @@
       relevant-if="(string-length(text()) &gt; 0)" />
     <xed:cleanup-rule xpath="//mycoreobject/service/servflags[@class='MCRMetaLangText']" relevant-if="servflag" />
   </xed:template>
+  
+  <xed:modify ref="editor.admins.additional.fields">
+  	<xed:include ref="alias" />
+  </xed:modify>
 
+  <xed:modify ref="editor.admins.additional.rules">
+ 	<xed:include ref="cleanup-rules-alias" />
+  </xed:modify>	  
+  
 </xed:template>
