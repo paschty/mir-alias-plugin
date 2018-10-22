@@ -10,14 +10,20 @@ import javax.servlet.FilterConfig;
 import javax.servlet.ServletException;
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.xml.transform.TransformerException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jdom2.Document;
 import org.jdom2.JDOMException;
 import org.jdom2.input.SAXBuilder;
+import org.mycore.common.content.MCRContent;
+import org.mycore.common.content.MCRJDOMContent;
+import org.mycore.common.xml.MCRLayoutService;
 import org.mycore.mir.alias.xslutil.BufferedHttpResponseWrapper;
+import org.xml.sax.SAXException;
 
 public class WebpageLayoutFilter implements Filter {
 
@@ -62,7 +68,12 @@ public class WebpageLayoutFilter implements Filter {
 		InputStream in = new ByteArrayInputStream(origXML);
 		try {
 			Document document = builder.build(in);
-		} catch (JDOMException e) {
+
+			MCRContent editedXML = new MCRJDOMContent(document);
+
+			MCRLayoutService.instance().doLayout((HttpServletRequest) request, (HttpServletResponse) response,
+					editedXML);
+		} catch (JDOMException | TransformerException | SAXException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
