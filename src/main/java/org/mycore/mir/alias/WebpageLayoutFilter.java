@@ -1,8 +1,6 @@
 package org.mycore.mir.alias;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
@@ -16,11 +14,8 @@ import javax.xml.transform.TransformerException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jdom2.Document;
-import org.jdom2.JDOMException;
-import org.jdom2.input.SAXBuilder;
-import org.mycore.common.content.MCRContent;
-import org.mycore.common.content.MCRJDOMContent;
+import org.mycore.common.MCRSessionMgr;
+import org.mycore.common.content.MCRByteContent;
 import org.mycore.common.xml.MCRLayoutService;
 import org.mycore.mir.alias.xslutil.BufferedHttpResponseWrapper;
 import org.xml.sax.SAXException;
@@ -63,20 +58,33 @@ public class WebpageLayoutFilter implements Filter {
 			chain.doFilter(request, response);
 			return;
 		}
-
-		SAXBuilder builder = new SAXBuilder();
-		InputStream in = new ByteArrayInputStream(origXML);
-		try {
-			Document document = builder.build(in);
-
-			MCRContent editedXML = new MCRJDOMContent(document);
-
-			MCRLayoutService.instance().doLayout((HttpServletRequest) request, (HttpServletResponse) response,
-					editedXML);
-		} catch (JDOMException | TransformerException | SAXException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+		
+		if("text/xml".equals(responseWrapper.getContentType())) {
+			MCRByteContent content = new MCRByteContent( responseWrapper.getBuffer());
+			try {
+				MCRSessionMgr.unlock();
+			
+				MCRLayoutService.instance().doLayout((HttpServletRequest) request, (HttpServletResponse) response,
+						content);
+			} catch (TransformerException | SAXException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
+
+//		SAXBuilder builder = new SAXBuilder();
+//		InputStream in = new ByteArrayInputStream(origXML);
+//		try {
+//			Document document = builder.build(in);
+//
+//			MCRContent editedXML = new MCRJDOMContent(document);
+//
+//			MCRLayoutService.instance().doLayout((HttpServletRequest) request, (HttpServletResponse) response,
+//					editedXML);
+//		} catch (JDOMException | TransformerException | SAXException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
 
 	}
 
