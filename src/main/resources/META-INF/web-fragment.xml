@@ -17,11 +17,11 @@
 
 
 	<filter>
-		<filter-name>WebpageLayoutFilter</filter-name>
-		<filter-class>org.mycore.mir.alias.WebpageLayoutFilter</filter-class>
+		<filter-name>MCRXmlLayoutFilter</filter-name>
+		<filter-class>org.mycore.mir.alias.filter.MCRXmlLayoutFilter</filter-class>
 	</filter>
 	<filter-mapping>
-		<filter-name>WebpageLayoutFilter</filter-name>
+		<filter-name>MCRXmlLayoutFilter</filter-name>
 		<url-pattern>/go/*</url-pattern>
 	</filter-mapping>
 

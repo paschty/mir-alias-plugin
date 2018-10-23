@@ -1,4 +1,4 @@
-package org.mycore.mir.alias;
+package org.mycore.mir.alias.filter;
 
 import java.io.IOException;
 
@@ -20,26 +20,23 @@ import org.mycore.common.xml.MCRLayoutService;
 import org.mycore.mir.alias.xslutil.BufferedHttpResponseWrapper;
 import org.xml.sax.SAXException;
 
-public class WebpageLayoutFilter implements Filter {
+public class MCRXmlLayoutFilter implements Filter {
 
 	private static Logger LOGGER = LogManager.getLogger();
 
 	@Override
 	public void init(FilterConfig filterConfig) throws ServletException {
 
-		System.out.println("filterconfig");
-
+		LOGGER.info("Add MCR xml Layoutfilter on URL-Pattern /go/*");
 	}
 
 	@Override
 	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
 			throws IOException, ServletException {
 
-		/*
-		 * check on response filename (xml)
-		 * 
+		/**
+		 * check on HttpServletResponse
 		 */
-
 		if (!(response instanceof HttpServletResponse)) {
 
 			LOGGER.error("This Filter is only compatible with HTTP");
@@ -47,50 +44,37 @@ public class WebpageLayoutFilter implements Filter {
 		}
 
 		BufferedHttpResponseWrapper responseWrapper = new BufferedHttpResponseWrapper((HttpServletResponse) response);
+		/*
+		 * no filter on request
+		 */
 		chain.doFilter(request, responseWrapper);
 
 		/*
-		 * be sure to write output into response wrapper outputstream
+		 * Do Layout filtering only on xml
 		 */
-		byte[] origXML = responseWrapper.getBuffer();
-		if (origXML == null || origXML.length == 0) {
+		byte[] xmlAsByteArray = responseWrapper.getBuffer();
 
-			chain.doFilter(request, response);
-			return;
-		}
-		
-		if("text/xml".equals(responseWrapper.getContentType())) {
-			MCRByteContent content = new MCRByteContent( responseWrapper.getBuffer());
+		if (responseWrapper.getContentType() != null && responseWrapper.getContentType().equals("text/xml")
+				&& xmlAsByteArray != null && xmlAsByteArray.length != 0) {
+
+			MCRByteContent content = new MCRByteContent(responseWrapper.getBuffer());
 			try {
 				MCRSessionMgr.unlock();
-			
+
 				MCRLayoutService.instance().doLayout((HttpServletRequest) request, (HttpServletResponse) response,
 						content);
 			} catch (TransformerException | SAXException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+
+				LOGGER.error("Error on doLayout with MCRLayoutService: " + e.getMessage());
 			}
+		} else {
+			chain.doFilter(request, response);
 		}
-
-//		SAXBuilder builder = new SAXBuilder();
-//		InputStream in = new ByteArrayInputStream(origXML);
-//		try {
-//			Document document = builder.build(in);
-//
-//			MCRContent editedXML = new MCRJDOMContent(document);
-//
-//			MCRLayoutService.instance().doLayout((HttpServletRequest) request, (HttpServletResponse) response,
-//					editedXML);
-//		} catch (JDOMException | TransformerException | SAXException e) {
-//			// TODO Auto-generated catch block
-//			e.printStackTrace();
-//		}
-
 	}
 
 	@Override
 	public void destroy() {
-		System.out.println("destroy");
+		// TODO Auto-generated method stub
 
 	}
 }
