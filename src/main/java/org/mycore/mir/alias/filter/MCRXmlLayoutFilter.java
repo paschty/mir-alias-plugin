@@ -1,6 +1,5 @@
 package org.mycore.mir.alias.filter;
 
-
 import java.io.IOException;
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
@@ -74,8 +73,11 @@ public class MCRXmlLayoutFilter implements Filter {
 			MCRByteContent content = new MCRByteContent(xmlBytes);
 			try {
 
-				LOGGER.info("Unlock MCRSession via MCRSessionManager.");
-				MCRSessionMgr.unlock();
+				if (MCRSessionMgr.isLocked()) {
+					
+					LOGGER.info("Unlock MCRSession via MCRSessionManager.");
+					MCRSessionMgr.unlock();
+				}
 
 				LOGGER.info("Generate html with MCRLayoutService.instance().doLayout(..) .");
 				MCRLayoutService.instance().doLayout((HttpServletRequest) request, (HttpServletResponse) response,
