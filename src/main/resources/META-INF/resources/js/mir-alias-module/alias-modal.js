@@ -1,6 +1,9 @@
 $(document).ready(function() {
 
-	var generatedurl = webApplicationBaseURL + 'go/';
+	
+	
+	var aliasPath = 'go';
+	var generatedurl = webApplicationBaseURL + aliasPath;
 	var alias = '';
 	var currentid = getUrlParameter('id');
 
@@ -41,7 +44,7 @@ $(document).ready(function() {
 				if (!isEmpty(alias)) {
 
 					if (!isinitial) {
-						generatedurl = webApplicationBaseURL + 'go/' + alias
+						generatedurl = webApplicationBaseURL + aliasPath + alias
 					} else {
 
 						if (initialAlias == null) {
@@ -65,7 +68,7 @@ $(document).ready(function() {
 								aliaspart = aliaspart.substr(0, aliaspart.length - 1);
 							}
 							
-							generatedurl = webApplicationBaseURL + 'go/' + alias;
+							generatedurl = webApplicationBaseURL + aliasPath + alias;
 
 							$("#mir-aliaspart").attr("value", aliaspart);
 						}

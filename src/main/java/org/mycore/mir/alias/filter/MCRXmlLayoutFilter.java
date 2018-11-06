@@ -17,7 +17,7 @@ import org.apache.logging.log4j.Logger;
 import org.mycore.common.MCRSessionMgr;
 import org.mycore.common.content.MCRByteContent;
 import org.mycore.common.xml.MCRLayoutService;
-import org.mycore.mir.alias.xslutil.BufferedHttpResponseWrapper;
+import org.mycore.mir.alias.xslutil.HttpServletResponseCopier;
 import org.xml.sax.SAXException;
 
 public class MCRXmlLayoutFilter implements Filter {
@@ -26,55 +26,64 @@ public class MCRXmlLayoutFilter implements Filter {
 
 	@Override
 	public void init(FilterConfig filterConfig) throws ServletException {
-
-		LOGGER.info("Add MCR xml Layoutfilter on URL-Pattern /go/*");
+		// TODO Auto-generated method stub
 	}
 
 	@Override
 	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
 			throws IOException, ServletException {
 
-		/**
-		 * check on HttpServletResponse
-		 */
-		if (!(response instanceof HttpServletResponse)) {
+		if (response.getCharacterEncoding() == null) {
 
-			LOGGER.error("This Filter is only compatible with HTTP");
-			throw new ServletException("response is not an instance of HttpServletResponse");
+			LOGGER.warn("ServletResponse does not have setted character encoding. Use UTF-8 as default.");
+			response.setCharacterEncoding("UTF-8"); // Or whatever default. UTF-8 is good for World Domination.
 		}
 
-		BufferedHttpResponseWrapper responseWrapper = new BufferedHttpResponseWrapper((HttpServletResponse) response);
-		/*
-		 * no filter on request
-		 */
-		chain.doFilter(request, responseWrapper);
+		LOGGER.info(
+				"Start to wrap HttpServletReponse -> The original response is handled and closed by the servlet engine.");
+		HttpServletResponseCopier responseCopier = new HttpServletResponseCopier((HttpServletResponse) response);
 
-		/*
-		 * Do Layout filtering only on xml
-		 */
-		byte[] xmlAsByteArray = responseWrapper.getBuffer();
+		try {
+			chain.doFilter(request, responseCopier);
 
-		if (responseWrapper.getContentType() != null && responseWrapper.getContentType().equals("text/xml")
-				&& xmlAsByteArray != null && xmlAsByteArray.length != 0) {
+			responseCopier.flushBuffer();
+		} finally {
+			byte[] xmlAsByteArray = responseCopier.getCopy();
 
-			MCRByteContent content = new MCRByteContent(responseWrapper.getBuffer());
-			try {
-				MCRSessionMgr.unlock();
+			/*
+			 * Log out the response for debugging
+			 */
+			LOGGER.info(
+					"Look into transformed servlet response after original response was handled and closed by the servlet engine.");
+			LOGGER.info("Character Encoding: " + responseCopier.getCharacterEncoding());
+			LOGGER.info("Content Type: " + responseCopier.getContentType());
+			LOGGER.info("Response status: " + responseCopier.getStatus());
 
-				MCRLayoutService.instance().doLayout((HttpServletRequest) request, (HttpServletResponse) response,
-						content);
-			} catch (TransformerException | SAXException e) {
+			if (responseCopier.getContentType() != null && responseCopier.getContentType().equals("text/xml")
+					&& xmlAsByteArray != null && xmlAsByteArray.length != 0) {
 
-				LOGGER.error("Error on doLayout with MCRLayoutService: " + e.getMessage());
+				LOGGER.info(
+						"Transformed response is an xml. Generate MCRByteContent and use it with MCRLayoutService to generate html.");
+
+				MCRByteContent content = new MCRByteContent(xmlAsByteArray);
+				try {
+
+					LOGGER.info("Unlock MCRSession via MCRSessionManager.");
+					MCRSessionMgr.unlock();
+
+					LOGGER.info("Generate html with MCRLayoutService.instance().doLayout(..) .");
+					MCRLayoutService.instance().doLayout((HttpServletRequest) request, (HttpServletResponse) response,
+							content);
+				} catch (TransformerException | SAXException e) {
+
+					LOGGER.error("Error on doLayout with MCRLayoutService: " + e.getMessage());
+				}
 			}
-		} else {
-			chain.doFilter(request, response);
 		}
 	}
 
 	@Override
 	public void destroy() {
 		// TODO Auto-generated method stub
-
 	}
 }
