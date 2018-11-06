@@ -1,7 +1,7 @@
 package org.mycore.mir.alias.filter;
 
-import java.io.IOException;
 
+import java.io.IOException;
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.FilterConfig;
@@ -17,7 +17,7 @@ import org.apache.logging.log4j.Logger;
 import org.mycore.common.MCRSessionMgr;
 import org.mycore.common.content.MCRByteContent;
 import org.mycore.common.xml.MCRLayoutService;
-import org.mycore.mir.alias.xslutil.HttpServletResponseCopier;
+import org.mycore.mir.alias.servletUtils.CharResponseWrapper;
 import org.xml.sax.SAXException;
 
 public class MCRXmlLayoutFilter implements Filter {
@@ -27,6 +27,13 @@ public class MCRXmlLayoutFilter implements Filter {
 	@Override
 	public void init(FilterConfig filterConfig) throws ServletException {
 		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void destroy() {
+		// TODO Auto-generated method stub
+
 	}
 
 	@Override
@@ -41,49 +48,45 @@ public class MCRXmlLayoutFilter implements Filter {
 
 		LOGGER.info(
 				"Start to wrap HttpServletReponse -> The original response is handled and closed by the servlet engine.");
-		HttpServletResponseCopier responseCopier = new HttpServletResponseCopier((HttpServletResponse) response);
+		CharResponseWrapper wrappedResponse = new CharResponseWrapper((HttpServletResponse) response);
 
-		try {
-			chain.doFilter(request, responseCopier);
+		/*
+		 * pass the wrappers on to the next entry
+		 */
+		chain.doFilter(request, wrappedResponse);
 
-			responseCopier.flushBuffer();
-		} finally {
-			byte[] xmlAsByteArray = responseCopier.getCopy();
+		/*
+		 * Log out the response for debugging
+		 */
+		LOGGER.info(
+				"Look into transformed servlet response after original response was handled and closed by the servlet engine.");
+		LOGGER.info("Character Encoding: " + wrappedResponse.getCharacterEncoding());
+		LOGGER.info("Content Type: " + wrappedResponse.getContentType());
+		LOGGER.info("Response status: " + wrappedResponse.getStatus());
 
-			/*
-			 * Log out the response for debugging
-			 */
+		if (wrappedResponse.getContentType() != null && wrappedResponse.getContentType().contains("text/xml")) {
+
+			byte[] xmlBytes = wrappedResponse.getByteArray();
+
 			LOGGER.info(
-					"Look into transformed servlet response after original response was handled and closed by the servlet engine.");
-			LOGGER.info("Character Encoding: " + responseCopier.getCharacterEncoding());
-			LOGGER.info("Content Type: " + responseCopier.getContentType());
-			LOGGER.info("Response status: " + responseCopier.getStatus());
+					"Transformed response is an xml. Generate MCRByteContent and use it with MCRLayoutService to generate html.");
 
-			if (responseCopier.getContentType() != null && responseCopier.getContentType().equals("text/xml")
-					&& xmlAsByteArray != null && xmlAsByteArray.length != 0) {
+			MCRByteContent content = new MCRByteContent(xmlBytes);
+			try {
 
-				LOGGER.info(
-						"Transformed response is an xml. Generate MCRByteContent and use it with MCRLayoutService to generate html.");
+				LOGGER.info("Unlock MCRSession via MCRSessionManager.");
+				MCRSessionMgr.unlock();
 
-				MCRByteContent content = new MCRByteContent(xmlAsByteArray);
-				try {
+				LOGGER.info("Generate html with MCRLayoutService.instance().doLayout(..) .");
+				MCRLayoutService.instance().doLayout((HttpServletRequest) request, (HttpServletResponse) response,
+						content);
+			} catch (TransformerException | SAXException e) {
 
-					LOGGER.info("Unlock MCRSession via MCRSessionManager.");
-					MCRSessionMgr.unlock();
-
-					LOGGER.info("Generate html with MCRLayoutService.instance().doLayout(..) .");
-					MCRLayoutService.instance().doLayout((HttpServletRequest) request, (HttpServletResponse) response,
-							content);
-				} catch (TransformerException | SAXException e) {
-
-					LOGGER.error("Error on doLayout with MCRLayoutService: " + e.getMessage());
-				}
+				LOGGER.error("Error on doLayout with MCRLayoutService: " + e.getMessage());
 			}
+		} else {
+			chain.doFilter(request, response);
 		}
 	}
 
-	@Override
-	public void destroy() {
-		// TODO Auto-generated method stub
-	}
 }
