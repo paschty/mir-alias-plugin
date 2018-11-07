@@ -63,7 +63,7 @@ public class MCRXmlLayoutFilter implements Filter {
 		LOGGER.info("Content Type: " + wrappedResponse.getContentType());
 		LOGGER.info("Response status: " + wrappedResponse.getStatus());
 
-		if (wrappedResponse.getContentType() != null && wrappedResponse.getContentType().contains("text/xml")) {
+		if (wrappedResponse.getContentType() != null && wrappedResponse.getContentType().contains("xml")) {
 
 			byte[] xmlBytes = wrappedResponse.getByteArray();
 
