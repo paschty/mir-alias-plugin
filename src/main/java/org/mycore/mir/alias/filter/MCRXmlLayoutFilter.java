@@ -1,6 +1,8 @@
 package org.mycore.mir.alias.filter;
 
 import java.io.IOException;
+import java.net.URL;
+
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.FilterConfig;
@@ -14,9 +16,11 @@ import javax.xml.transform.TransformerException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.mycore.common.MCRSessionMgr;
-import org.mycore.common.content.MCRByteContent;
+import org.mycore.common.content.MCRContent;
+import org.mycore.common.content.MCRURLContent;
 import org.mycore.common.xml.MCRLayoutService;
-import org.mycore.mir.alias.servletUtils.CharResponseWrapper;
+import org.mycore.mir.alias.AliasDispatcherServlet;
+import org.mycore.mir.alias.servletUtils.ResponseWrapper;
 import org.xml.sax.SAXException;
 
 public class MCRXmlLayoutFilter implements Filter {
@@ -47,10 +51,14 @@ public class MCRXmlLayoutFilter implements Filter {
 
 		LOGGER.info(
 				"Start to wrap HttpServletReponse -> The original response is handled and closed by the servlet engine.");
-		CharResponseWrapper wrappedResponse = new CharResponseWrapper((HttpServletResponse) response);
+
+		/* 
+		 * Generate a response wrapper with a different output stream
+		 */
+		ResponseWrapper wrappedResponse = new ResponseWrapper((HttpServletResponse) response);
 
 		/*
-		 * pass the wrappers on to the next entry
+		 *  Process all in the chain
 		 */
 		chain.doFilter(request, wrappedResponse);
 
@@ -62,19 +70,25 @@ public class MCRXmlLayoutFilter implements Filter {
 		LOGGER.info("Character Encoding: " + wrappedResponse.getCharacterEncoding());
 		LOGGER.info("Content Type: " + wrappedResponse.getContentType());
 		LOGGER.info("Response status: " + wrappedResponse.getStatus());
-
-		byte[] byteArray = wrappedResponse.getByteArray();
 		
 		if (wrappedResponse.getContentType() != null && wrappedResponse.getContentType().contains("xml")) {
+
+			String pathInfo = ((HttpServletRequest) request).getPathInfo();
+			String derivatePath = AliasDispatcherServlet.getPathToDerivate(pathInfo);			
 
 			LOGGER.info(
 					"Transformed response is an xml. Generate MCRByteContent and use it with MCRLayoutService to generate html.");
 
-			MCRByteContent content = new MCRByteContent(byteArray);
+			StringBuffer url = ((HttpServletRequest) request).getRequestURL();
+			String uri = ((HttpServletRequest) request).getRequestURI();
+			String host = url.substring(0, url.indexOf(uri)); //result
+
+			MCRContent content = new MCRURLContent(new URL(host + derivatePath)); 
+			
 			try {
 
 				if (MCRSessionMgr.isLocked()) {
-					
+
 					LOGGER.info("Unlock MCRSession via MCRSessionManager.");
 					MCRSessionMgr.unlock();
 				}
@@ -87,7 +101,7 @@ public class MCRXmlLayoutFilter implements Filter {
 				LOGGER.error("Error on doLayout with MCRLayoutService: " + e.getMessage());
 			}
 		} else {
-			response.getOutputStream().write(byteArray);
+			chain.doFilter(request, response);
 		}
 	}
 }

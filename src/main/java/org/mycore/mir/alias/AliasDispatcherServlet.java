@@ -42,7 +42,6 @@ public class AliasDispatcherServlet extends HttpServlet {
 	private static final long serialVersionUID = -4222669908309310140L;
 	private static Logger LOGGER = LogManager.getLogger();
 
-
 	// Solr Fieldnames
 	private static final String OBJECT_ID = "id";
 	private static final String ALIAS = "alias";
@@ -52,7 +51,69 @@ public class AliasDispatcherServlet extends HttpServlet {
 	 * Client which communicates with MyCoRe Solr Server
 	 */
 	SolrClient solrClient = MCRSolrClientFactory.getMainSolrClient();
-	
+
+	public static String getPathToDerivate(String path) {
+
+		List<String> pathParts = new ArrayList<String>(Arrays.asList(path.split("/")));
+		pathParts.removeIf(pathPart -> pathPart.isEmpty());
+		
+		SolrDocumentList results = new SolrDocumentList();
+		
+		SolrClient solrClient = MCRSolrClientFactory.getMainSolrClient();
+
+		if (pathParts.size() > 1) {
+
+			String aliasPart = "/";
+
+			for (int i = 0; i < pathParts.size() - 1; i++) {
+
+				aliasPart = aliasPart + pathParts.get(i) + "/";
+			}
+
+			String possibleFilename = pathParts.get(pathParts.size() - 1);
+
+			LOGGER.debug("Try to resolve file with filename: " + possibleFilename);
+			LOGGER.debug("Looking for derivates in alias: " + aliasPart);
+
+			/*
+			 * try to resolve mycore object belongs to filename
+			 */
+			results = getMCRObjectsFromSolr(solrClient, parsePath(aliasPart));
+
+			if (!results.isEmpty()) {
+
+				Object documentId = results.get(0).getFieldValue(OBJECT_ID);
+
+				if (documentId != null && documentId instanceof String) {
+
+					/*
+					 * Get doument Id as MCRObjectID
+					 */
+					MCRObjectID mcrObjectId = MCRObjectID.getInstance((String) documentId);
+
+					/*
+					 * get derivatives
+					 */
+					List<MCRObjectID> derivatesForDocument = MCRMetadataManager.getDerivateIds(mcrObjectId, 0,
+							TimeUnit.MILLISECONDS);
+
+					if (derivatesForDocument != null) {
+
+						for (MCRObjectID mcrDerivateID : derivatesForDocument) {
+
+							LOGGER.debug("Looking in derivate " + mcrDerivateID.toString() + " for filename: "
+									+ possibleFilename);
+
+							return "/servlets/MCRFileNodeServlet/" + mcrDerivateID.toString() + "/" + possibleFilename;
+						}
+					}
+				}
+			}
+		}
+
+		return null;
+	}
+
 	@Override
 	public void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 
@@ -74,11 +135,10 @@ public class AliasDispatcherServlet extends HttpServlet {
 				/*
 				 * Try to resolve path as an alias
 				 */
-				results = getMCRObjectsFromSolr(path);
+				results = getMCRObjectsFromSolr(this.solrClient, path);
 
 				/*
-				 * Use request dispatcher to forward alias URL to equal MyCoRe
-				 * Object URL
+				 * Use request dispatcher to forward alias URL to equal MyCoRe Object URL
 				 */
 				if (!results.isEmpty() && results.get(0) != null) {
 
@@ -109,57 +169,61 @@ public class AliasDispatcherServlet extends HttpServlet {
 					LOGGER.debug("Try to resolve file with filename: " + possibleFilename);
 					LOGGER.debug("Looking for derivates in alias: " + aliasPart);
 
-                    /*
-                     * try to resolve mycore object belongs to filename
-                     */
-                    results = getMCRObjectsFromSolr(parsePath(aliasPart));
+					/*
+					 * try to resolve mycore object belongs to filename
+					 */
+					results = getMCRObjectsFromSolr(this.solrClient, parsePath(aliasPart));
 
-                    if (!results.isEmpty()) {
+					if (!results.isEmpty()) {
 
-                        Object documentId = results.get(0).getFieldValue(OBJECT_ID);
+						Object documentId = results.get(0).getFieldValue(OBJECT_ID);
 
-                        if (documentId != null && documentId instanceof String) {
+						if (documentId != null && documentId instanceof String) {
 
-                            /*
-                             * Get doument Id as MCRObjectID
-                             */
-                            MCRObjectID mcrObjectId = MCRObjectID.getInstance((String) documentId);
+							/*
+							 * Get doument Id as MCRObjectID
+							 */
+							MCRObjectID mcrObjectId = MCRObjectID.getInstance((String) documentId);
 
-                            /*
-                             * get derivatives
-                             */
-                            List<MCRObjectID> derivatesForDocument = MCRMetadataManager.getDerivateIds(mcrObjectId, 0, TimeUnit.MILLISECONDS);
+							/*
+							 * get derivatives
+							 */
+							List<MCRObjectID> derivatesForDocument = MCRMetadataManager.getDerivateIds(mcrObjectId, 0,
+									TimeUnit.MILLISECONDS);
 
-                            if (derivatesForDocument != null) {
+							if (derivatesForDocument != null) {
 
-                                for (MCRObjectID mcrDerivateID : derivatesForDocument) {
+								for (MCRObjectID mcrDerivateID : derivatesForDocument) {
 
-                                    LOGGER.debug("Looking in derivate " + mcrDerivateID.toString() + " for filename: " + possibleFilename);
+									LOGGER.debug("Looking in derivate " + mcrDerivateID.toString() + " for filename: "
+											+ possibleFilename);
 
-                                    MCRPath mcrPath = MCRPath.getPath(mcrDerivateID.toString(), possibleFilename);
+									MCRPath mcrPath = MCRPath.getPath(mcrDerivateID.toString(), possibleFilename);
 
-                                    try {
-                                        Files.readAttributes(mcrPath, BasicFileAttributes.class);
+									try {
+										Files.readAttributes(mcrPath, BasicFileAttributes.class);
 
-                                        LOGGER.info(possibleFilename + " was found in derivate " + mcrDerivateID.toString());
+										LOGGER.info(possibleFilename + " was found in derivate "
+												+ mcrDerivateID.toString());
 
-                                        RequestDispatcher dispatcher = request.getServletContext()
-                                                .getRequestDispatcher("/servlets/MCRFileNodeServlet/" + mcrDerivateID.toString() + "/" + possibleFilename);
+										RequestDispatcher dispatcher = request.getServletContext()
+												.getRequestDispatcher("/servlets/MCRFileNodeServlet/"
+														+ mcrDerivateID.toString() + "/" + possibleFilename);
 
-                                        dispatcher.forward(request, response);
-                                        isforwarded = true;
+										dispatcher.forward(request, response);
+										isforwarded = true;
 
-                                    } catch (NoSuchFileException e) {
+									} catch (NoSuchFileException e) {
 
-                                        // do nothing
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+										// do nothing
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
 
 		// Error redirect
 		if (!isforwarded) {
@@ -172,11 +236,10 @@ public class AliasDispatcherServlet extends HttpServlet {
 	 * 
 	 * Helper method for resolve an alias in solr
 	 * 
-	 * @param aliasPart
-	 *            alias part
+	 * @param aliasPart alias part
 	 * @return Documentlist associated with given alias from solr
 	 */
-	protected SolrDocumentList getMCRObjectsFromSolr(String aliasPart) {
+	protected static SolrDocumentList getMCRObjectsFromSolr(SolrClient solrClient, String aliasPart) {
 
 		SolrDocumentList results = new SolrDocumentList();
 
@@ -185,7 +248,7 @@ public class AliasDispatcherServlet extends HttpServlet {
 			String searchStr = ALIAS + ":%filter%".replace("%filter%",
 					aliasPart != null && !aliasPart.isEmpty() ? MCRSolrUtils.escapeSearchValue(aliasPart) : "*");
 
-			results = resolveSolrDocuments(searchStr);
+			results = resolveSolrDocuments(solrClient, searchStr);
 
 			if (results.size() > 1) {
 
@@ -204,11 +267,10 @@ public class AliasDispatcherServlet extends HttpServlet {
 	/**
 	 * Parses additional chars to given path
 	 * 
-	 * @param path
-	 *            searchpath
+	 * @param path searchpath
 	 * @return path without additional chars
 	 */
-	private String parsePath(String path) {
+	private static String parsePath(String path) {
 
 		/*
 		 * remove "/" character at beginning and end
@@ -226,13 +288,12 @@ public class AliasDispatcherServlet extends HttpServlet {
 	 * Resolving Solr Documents with given searchStr
 	 * 
 	 *
-	 * @param searchStr
-	 *            search String for solr query
+	 * @param searchStr search String for solr query
 	 * @return if there is an indexing in solr, then get the resolved document
 	 * @throws SolrServerException
 	 * @throws IOException
 	 */
-	public SolrDocumentList resolveSolrDocuments(String searchStr) throws SolrServerException, IOException {
+	public static SolrDocumentList resolveSolrDocuments(SolrClient solrClient, String searchStr) throws SolrServerException, IOException {
 
 		SolrQuery query = new SolrQuery();
 
