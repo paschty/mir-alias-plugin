@@ -63,14 +63,14 @@ public class MCRXmlLayoutFilter implements Filter {
 		LOGGER.info("Content Type: " + wrappedResponse.getContentType());
 		LOGGER.info("Response status: " + wrappedResponse.getStatus());
 
+		byte[] byteArray = wrappedResponse.getByteArray();
+		
 		if (wrappedResponse.getContentType() != null && wrappedResponse.getContentType().contains("xml")) {
-
-			byte[] xmlBytes = wrappedResponse.getByteArray();
 
 			LOGGER.info(
 					"Transformed response is an xml. Generate MCRByteContent and use it with MCRLayoutService to generate html.");
 
-			MCRByteContent content = new MCRByteContent(xmlBytes);
+			MCRByteContent content = new MCRByteContent(byteArray);
 			try {
 
 				if (MCRSessionMgr.isLocked()) {
@@ -87,8 +87,7 @@ public class MCRXmlLayoutFilter implements Filter {
 				LOGGER.error("Error on doLayout with MCRLayoutService: " + e.getMessage());
 			}
 		} else {
-			chain.doFilter(request, response);
+			response.getOutputStream().write(byteArray);
 		}
 	}
-
 }
