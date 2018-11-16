@@ -16,10 +16,12 @@ import javax.xml.transform.TransformerException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.mycore.common.MCRSessionMgr;
+import org.mycore.common.content.MCRByteContent;
 import org.mycore.common.content.MCRContent;
 import org.mycore.common.content.MCRURLContent;
 import org.mycore.common.xml.MCRLayoutService;
 import org.mycore.mir.alias.AliasDispatcherServlet;
+import org.mycore.mir.alias.servletUtils.CharResponseWrapper;
 import org.mycore.mir.alias.servletUtils.ResponseWrapper;
 import org.xml.sax.SAXException;
 
@@ -70,7 +72,7 @@ public class MCRXmlLayoutFilter implements Filter {
 		LOGGER.info("Character Encoding: " + wrappedResponse.getCharacterEncoding());
 		LOGGER.info("Content Type: " + wrappedResponse.getContentType());
 		LOGGER.info("Response status: " + wrappedResponse.getStatus());
-		
+
 		if (wrappedResponse.getContentType() != null && wrappedResponse.getContentType().contains("xml")) {
 
 			String pathInfo = ((HttpServletRequest) request).getPathInfo();
@@ -83,22 +85,26 @@ public class MCRXmlLayoutFilter implements Filter {
 			String uri = ((HttpServletRequest) request).getRequestURI();
 			String host = url.substring(0, url.indexOf(uri)); //result
 
-			MCRContent content = new MCRURLContent(new URL(host + derivatePath)); 
-			
+			MCRContent content = new MCRURLContent(new URL(host + derivatePath));
+			boolean hadSession = MCRSessionMgr.hasCurrentSession();
+			boolean wasLocked = MCRSessionMgr.isLocked();
 			try {
-
-				if (MCRSessionMgr.isLocked()) {
-
+				if (wasLocked) {
 					LOGGER.info("Unlock MCRSession via MCRSessionManager.");
 					MCRSessionMgr.unlock();
 				}
-
 				LOGGER.info("Generate html with MCRLayoutService.instance().doLayout(..) .");
 				MCRLayoutService.instance().doLayout((HttpServletRequest) request, (HttpServletResponse) response,
 						content);
 			} catch (TransformerException | SAXException e) {
-
 				LOGGER.error("Error on doLayout with MCRLayoutService: " + e.getMessage());
+			} finally {
+				if(!hadSession && MCRSessionMgr.hasCurrentSession()){
+					MCRSessionMgr.releaseCurrentSession();
+				}
+				if(wasLocked && !MCRSessionMgr.isLocked()){
+					MCRSessionMgr.lock();
+				}
 			}
 		} else {
 			chain.doFilter(request, response);
