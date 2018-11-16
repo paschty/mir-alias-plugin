@@ -2,7 +2,7 @@ $(document).ready(function() {
 
 	
 	
-	var aliasPath = 'go';
+	var aliasPath = 'publikationen';
 	var generatedurl = webApplicationBaseURL + aliasPath;
 	var alias = '';
 	var currentid = getUrlParameter('id');

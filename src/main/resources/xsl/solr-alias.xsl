@@ -15,7 +15,7 @@
   
   <xsl:template match="service/servflags/servflag[@type='alias']" mode="alias">
     <field name="alias">
-      <xsl:apply-templates select="ancestor::mycoreobject" mode="parent.alias" />
+      <!-- xsl:apply-templates select="ancestor::mycoreobject" mode="parent.alias" / -->
       <xsl:value-of select="text()" />
     </field>
   </xsl:template>
