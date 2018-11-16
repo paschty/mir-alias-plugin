@@ -71,20 +71,25 @@ public class MCRXmlLayoutFilter implements Filter {
 					"Transformed response is an xml. Generate MCRByteContent and use it with MCRLayoutService to generate html.");
 
 			MCRByteContent content = new MCRByteContent(byteArray);
+			boolean hadSession = MCRSessionMgr.hasCurrentSession();
+			boolean wasLocked = MCRSessionMgr.isLocked();
 			try {
-
-				if (MCRSessionMgr.isLocked()) {
-					
+				if (wasLocked) {
 					LOGGER.info("Unlock MCRSession via MCRSessionManager.");
 					MCRSessionMgr.unlock();
 				}
-
 				LOGGER.info("Generate html with MCRLayoutService.instance().doLayout(..) .");
 				MCRLayoutService.instance().doLayout((HttpServletRequest) request, (HttpServletResponse) response,
 						content);
 			} catch (TransformerException | SAXException e) {
-
 				LOGGER.error("Error on doLayout with MCRLayoutService: " + e.getMessage());
+			} finally {
+				if(!hadSession && MCRSessionMgr.hasCurrentSession()){
+					MCRSessionMgr.releaseCurrentSession();
+				}
+				if(wasLocked && !MCRSessionMgr.isLocked()){
+					MCRSessionMgr.lock();
+				}
 			}
 		} else {
 			response.getOutputStream().write(byteArray);
