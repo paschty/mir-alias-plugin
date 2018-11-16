@@ -93,16 +93,19 @@ public class MCRXmlLayoutFilter implements Filter {
 					LOGGER.info("Unlock MCRSession via MCRSessionManager.");
 					MCRSessionMgr.unlock();
 				}
+				if (!hadSession) {
+					MCRSessionMgr.getCurrentSession();
+				}
 				LOGGER.info("Generate html with MCRLayoutService.instance().doLayout(..) .");
 				MCRLayoutService.instance().doLayout((HttpServletRequest) request, (HttpServletResponse) response,
 						content);
 			} catch (TransformerException | SAXException e) {
 				LOGGER.error("Error on doLayout with MCRLayoutService: " + e.getMessage());
 			} finally {
-				if(!hadSession && MCRSessionMgr.hasCurrentSession()){
+				if (!hadSession) {
 					MCRSessionMgr.releaseCurrentSession();
 				}
-				if(wasLocked && !MCRSessionMgr.isLocked()){
+				if (wasLocked) {
 					MCRSessionMgr.lock();
 				}
 			}
